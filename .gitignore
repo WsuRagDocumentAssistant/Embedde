@@ -1,0 +1,28 @@
+# Virtual Environment
+.venv/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.sln.docstates
+*.pyproj
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# file
+start.py
