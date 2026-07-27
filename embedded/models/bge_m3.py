@@ -1,12 +1,12 @@
 from typing import Dict, List, Optional
 
-from ..base import BaseEmbeddedModel, SparseCapable
+from ..base import BaseEmbeddedModel, DenseCapable, SparseCapable
 from ..hf_utils import resolve_model_path
 from ..registry import register
 
 
 @register("bge-m3")
-class BGEM3Model(BaseEmbeddedModel, SparseCapable):
+class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
     """BGE-M3: dense + sparse(lexical) 동시 지원. FlagEmbedding 필요."""
 
     def __init__(
@@ -19,10 +19,11 @@ class BGEM3Model(BaseEmbeddedModel, SparseCapable):
         batch_size: int = 12,
         **hub_kwargs,
     ):
-        super().__init__(normalize=normalize, batch_size=batch_size)
+        super().__init__(batch_size=batch_size)
         from FlagEmbedding import BGEM3FlagModel  # 지연 import
 
         self._name = model_name
+        self.normalize = normalize            # DenseCapable 클래스 기본값을 인스턴스 값으로 덮어씀
         path = resolve_model_path(model_name, local_dir, **hub_kwargs)
         self._model = BGEM3FlagModel(path, use_fp16=use_fp16, device=device)
 

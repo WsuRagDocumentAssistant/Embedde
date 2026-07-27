@@ -1,0 +1,19 @@
+# 임베딩 모델 패키지 실행에 필요한 라이브러리 (버전 고정)
+# 현재 개발 .venv 기준. 오프라인 서버에도 동일 버전으로 설치할 것.
+#
+# 오프라인 설치 시:
+#   1) 인터넷 되는 PC에서 wheel 수집(서버 OS/파이썬 버전에 맞게):
+#        pip download -r requirements.txt -d offline_wheels
+#   2) 서버에서 인터넷 없이 설치:
+#        pip install --no-index --find-links=./offline_wheels -r requirements.txt
+
+# --- 프로젝트가 직접 import 하는 것 ---
+numpy==2.4.6
+huggingface_hub==1.23.0
+sentence-transformers==5.6.0   # dense 백엔드 (SentenceTransformerModel)
+FlagEmbedding==1.4.0           # bge-m3 dense+sparse 백엔드 (BGEM3Model)
+
+# --- 위 패키지가 끌어오지만, 재현성을 위해 명시 고정 ---
+# torch는 CPU판/CUDA판이 갈리므로 서버 GPU 유무에 따라 설치 소스가 달라질 수 있음.
+transformers==5.13.0
+torch==2.13.0

@@ -10,7 +10,6 @@ __pycache__/
 *.suo
 *.user
 *.sln.docstates
-*.pyproj
 
 # Build
 build/
@@ -26,3 +25,7 @@ Thumbs.db
 
 # file
 start.py
+
+# 모델 가중치 (USB로 별도 반입, git에 올리지 않음)
+models/
+offline_wheels/

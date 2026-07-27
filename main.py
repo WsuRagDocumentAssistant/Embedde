@@ -33,10 +33,10 @@ def main() -> None:
     print("등록된 모델:", available_models())
 
     # 교체 = 이름 문자열 변경이 전부
-    run_model("minilm-l6")
+    # run_model("minilm-l6")
     # run_model("ko-sroberta")
     # run_model("multilingual-e5-large")
-    # run_model("bge-m3")  # FlagEmbedding 설치 필요, dense + sparse
+    run_model("bge-m3")  # FlagEmbedding 설치 필요, dense + sparse
 
 
 if __name__ == "__main__":

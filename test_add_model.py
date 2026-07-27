@@ -10,6 +10,7 @@ import numpy as np
 
 from embedded import (
     BaseEmbeddedModel,
+    DenseCapable,
     available_models,
     create_model,
     register,
@@ -27,10 +28,11 @@ register_preset(
 # 데모용 해시 기반 임베더. 실제로는 OpenAI API, ONNX 런타임 등
 # 어떤 백엔드든 _encode_raw()만 맞추면 동일하게 동작한다.
 @register("hash-demo", dim=64)
-class HashEmbedder(BaseEmbeddedModel):
+class HashEmbedder(BaseEmbeddedModel, DenseCapable):
 
     def __init__(self, dim: int = 64, normalize: bool = True, batch_size: int = 12):
-        super().__init__(normalize=normalize, batch_size=batch_size)
+        super().__init__(batch_size=batch_size)
+        self.normalize = normalize
         self._dim = dim
 
     @property

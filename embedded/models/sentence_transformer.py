@@ -1,12 +1,12 @@
 from typing import List, Optional
 
-from ..base import BaseEmbeddedModel
+from ..base import BaseEmbeddedModel, DenseCapable
 from ..hf_utils import resolve_model_path
 from ..registry import register, register_preset
 
 
 @register("sentence-transformer")
-class SentenceTransformerModel(BaseEmbeddedModel):
+class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
     """sentence-transformers로 로드 가능한 모든 HF 모델을 커버하는 범용 백엔드.
 
     e5, bge, ko-sroberta 등 대부분의 dense 임베딩 모델은
@@ -24,10 +24,11 @@ class SentenceTransformerModel(BaseEmbeddedModel):
         batch_size: int = 12,
         **hub_kwargs,
     ):
-        super().__init__(normalize=normalize, batch_size=batch_size)
+        super().__init__(batch_size=batch_size)
         from sentence_transformers import SentenceTransformer  # 지연 import: 미설치 환경에서도 패키지 로드는 가능해야 함
 
         self._name = model_name
+        self.normalize = normalize            # DenseCapable 클래스 기본값을 인스턴스 값으로 덮어씀
         self.query_prefix = query_prefix
         self.passage_prefix = passage_prefix
         path = resolve_model_path(model_name, local_dir, **hub_kwargs)
