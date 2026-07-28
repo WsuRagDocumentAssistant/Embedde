@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "embedded-model"
+version = "0.1.0"
+description = "교체 가능하고 확장성 있는 임베딩 모델 추상화 패키지"
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+    "numpy",
+    "huggingface_hub",
+    "sentence-transformers",   # dense 백엔드
+    "FlagEmbedding",           # bge-m3 dense+sparse
+]
+
+[tool.setuptools.packages.find]
+include = ["embedded*"]        # embedded 패키지만 설치 대상으로
