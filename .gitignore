@@ -32,3 +32,7 @@ offline_wheels/
 
 #실행 테스트
 main.py
+test_add_model.py
+verify_offline.py
+verify_offline.py
+test_add_model.py
