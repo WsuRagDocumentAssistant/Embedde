@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from ..base import BaseEmbeddedModel, DenseCapable
 from ..hf_utils import resolve_model_path
-from ..registry import register, register_preset
+from ..registry import register
 
 
 @register("sentence-transformer")
@@ -56,28 +56,23 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
         )
 
 
-# ---- 모델별 프리셋: 같은 백엔드, 설정만 다름 ------------------------------
-
-register_preset(
-    "multilingual-e5-large", "sentence-transformer",
-    model_name="intfloat/multilingual-e5-large",
-    query_prefix="query: ",
-    passage_prefix="passage: ",
-)
-
-register_preset(
-    "multilingual-e5-base", "sentence-transformer",
-    model_name="intfloat/multilingual-e5-base",
-    query_prefix="query: ",
-    passage_prefix="passage: ",
-)
-
-register_preset(
-    "ko-sroberta", "sentence-transformer",
-    model_name="jhgan/ko-sroberta-multitask",
-)
-
-register_preset(
-    "minilm-l6", "sentence-transformer",
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-)
+# ---- 사용법 ---------------------------------------------------------------
+# 이 백엔드는 "sentence-transformer" 이름으로만 등록되고, 구체 모델 프리셋은
+# 패키지에 하드코딩하지 않는다. 필요한 모델은 사용자가 자기 코드에서 등록한다.
+#
+#   from embedded import create_model, register_preset
+#
+#   # (1) 즉석 사용 — model_name 등을 직접 넘김
+#   model = create_model("sentence-transformer",
+#                        model_name="sentence-transformers/all-MiniLM-L6-v2")
+#
+#   # (2) 재사용할 별칭 등록
+#   register_preset("minilm-l6", "sentence-transformer",
+#                   model_name="sentence-transformers/all-MiniLM-L6-v2")
+#   model = create_model("minilm-l6")
+#
+# ⚠️ 접두사 주의: 일부 모델은 query/passage 접두사가 있어야 검색 성능이 나온다.
+#    빠뜨려도 에러 없이 조용히 품질만 떨어지므로 등록 시 반드시 함께 지정할 것.
+#      - intfloat/multilingual-e5-*  → query_prefix="query: ", passage_prefix="passage: "
+#      - BAAI/bge 계열(영문 instruct) → 모델 카드의 지시 프롬프트 확인
+#      - jhgan/ko-sroberta-multitask, all-MiniLM-* → 접두사 불필요

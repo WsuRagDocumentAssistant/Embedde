@@ -29,6 +29,36 @@ class BaseEmbeddedModel(ABC):
     def model_name(self) -> str:
         """사람이 읽을 수 있는 모델 식별자 (레포 ID 등). 모든 모델의 공통 속성."""
 
+    # ---- 리소스 해제 -------------------------------------------------------
+    def unload(self) -> None:
+        """모델을 메모리/GPU에서 내린다.
+
+        파이썬은 GPU 메모리를 자동으로 반납하지 않으므로, 서버 graceful
+        shutdown 등에서 명시적으로 호출해 VRAM을 비운다. 여러 번 호출해도 안전.
+        구현체가 self._model 에 실제 모델을 들고 있다고 가정하며, 다른 이름을
+        쓰는 구현체는 이 메서드를 오버라이드한다.
+        """
+        if getattr(self, "_model", None) is not None:
+            self._model = None
+        import gc
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            pass  # torch 없는 백엔드(예: 해시/외부 API)면 할 일 없음
+
+    def __enter__(self) -> "BaseEmbeddedModel":
+        """with 블록 진입 — 인스턴스 그대로 반환."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """with 블록 이탈 시(정상/예외 모두) unload() 호출.
+        False 반환으로 블록 안 예외는 그대로 전파시킨다(삼키지 않음)."""
+        self.unload()
+        return False
+
 
 class DenseCapable(ABC):
     """dense 벡터를 뽑을 수 있는 능력.
@@ -59,6 +89,10 @@ class DenseCapable(ABC):
     def encode(self, texts: List[str], batch_size: Optional[int] = None) -> np.ndarray:
         """배치별로 _encode_raw()를 호출해 결과를 모으고,
         GPU -> CPU 변환은 전체 배치가 끝난 뒤 딱 한 번만 수행한다."""
+        if not texts:
+            # 빈 입력: (0, dimension) 빈 배열을 반환해 호출부가 죽지 않게 한다.
+            # (_concat_raw는 batches[0]에 접근하므로 빈 배치 리스트면 IndexError)
+            return np.empty((0, self.dimension), dtype=np.float32)
         bs = batch_size or self.batch_size
         raw_batches = [
             self._encode_raw(texts[i : i + bs]) for i in range(0, len(texts), bs)
@@ -102,9 +136,19 @@ class SparseCapable(ABC):
 
     BGE-M3, SPLADE 등만 가진다. dense 없이 sparse만 하는 모델도 표현 가능.
     호출부에서는 isinstance(model, SparseCapable)로 지원 여부를 분기한다.
+
+    DenseCapable(encode/_encode_raw)과 대칭 구조: 빈 입력 등 공통 처리는
+    encode_sparse()가 맡고, 구현체는 _encode_sparse_raw()만 채운다.
     """
 
-    @abstractmethod
     def encode_sparse(self, texts: List[str]) -> List[Dict[int, float]]:
-        """텍스트 리스트 -> 문장마다 {token_id: weight} 딕셔너리."""
+        """텍스트 리스트 -> 문장마다 {token_id: weight} 딕셔너리.
+        빈 입력 방어는 여기서 공통 보장하고, 실제 인코딩은 구현체에 위임한다."""
+        if not texts:
+            return []
+        return self._encode_sparse_raw(texts)
+
+    @abstractmethod
+    def _encode_sparse_raw(self, texts: List[str]) -> List[Dict[int, float]]:
+        """서브클래스가 구현: 비어있지 않은 텍스트 리스트 -> {token_id: weight} 리스트."""
         raise NotImplementedError

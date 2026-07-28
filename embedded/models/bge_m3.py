@@ -48,7 +48,8 @@ class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
         )
         return out["dense_vecs"]  # numpy (FlagEmbedding이 내부에서 CPU로 반환)
 
-    def encode_sparse(self, texts: List[str]) -> List[Dict[int, float]]:
+    def _encode_sparse_raw(self, texts: List[str]) -> List[Dict[int, float]]:
+        # 빈 입력 방어는 SparseCapable.encode_sparse()가 이미 처리 (여기는 항상 non-empty)
         out = self._model.encode(
             texts,
             batch_size=self.batch_size,
