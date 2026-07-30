@@ -1,7 +1,11 @@
+import logging
+import time
 from typing import Dict, List, Optional
 
 from ..base import BaseEmbeddedModel, DenseCapable, SparseCapable
 from ..hf_utils import resolve_model_path
+
+logger = logging.getLogger(__name__)
 
 
 class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
@@ -22,8 +26,11 @@ class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
 
         self._name = model_name
         self.normalize = normalize            # DenseCapable 클래스 기본값을 인스턴스 값으로 덮어씀
+        logger.info("모델 로딩 시작: %s", model_name)
+        start = time.time()
         path = resolve_model_path(model_name, local_dir, **hub_kwargs)
         self._model = BGEM3FlagModel(path, use_fp16=use_fp16, device=device)
+        logger.info("모델 로딩 완료: %s (%.1fs)", model_name, time.time() - start)
 
     @property
     def model_name(self) -> str:

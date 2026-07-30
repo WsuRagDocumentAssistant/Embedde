@@ -1,7 +1,11 @@
+import logging
+import time
 from typing import List, Optional
 
 from ..base import BaseEmbeddedModel, DenseCapable
 from ..hf_utils import resolve_model_path
+
+logger = logging.getLogger(__name__)
 
 
 class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
@@ -29,8 +33,11 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
         self.normalize = normalize            # DenseCapable 클래스 기본값을 인스턴스 값으로 덮어씀
         self.query_prefix = query_prefix
         self.passage_prefix = passage_prefix
+        logger.info("모델 로딩 시작: %s", model_name)
+        start = time.time()
         path = resolve_model_path(model_name, local_dir, **hub_kwargs)
         self._model = SentenceTransformer(path, device=device)
+        logger.info("모델 로딩 완료: %s (%.1fs)", model_name, time.time() - start)
 
     @property
     def model_name(self) -> str:

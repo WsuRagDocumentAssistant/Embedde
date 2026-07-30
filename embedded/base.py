@@ -1,7 +1,10 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class BaseEmbeddedModel(ABC):
@@ -48,6 +51,7 @@ class BaseEmbeddedModel(ABC):
                 torch.cuda.empty_cache()
         except ImportError:
             pass  # torch 없는 백엔드(예: 해시/외부 API)면 할 일 없음
+        logger.info("모델 unload: %s", self.model_name)
 
     def __enter__(self) -> "BaseEmbeddedModel":
         """with 블록 진입 — 인스턴스 그대로 반환."""
