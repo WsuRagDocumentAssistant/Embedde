@@ -24,7 +24,11 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
         passage_prefix: str = "",
         normalize: bool = True,
         batch_size: int = 12,
-        **hub_kwargs,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        ignore_patterns: Optional[List[str]] = None,
+        max_workers: int = 4,
+        local_files_only: bool = False,
     ):
         super().__init__(batch_size=batch_size)
         from sentence_transformers import SentenceTransformer  # 지연 import: 미설치 환경에서도 패키지 로드는 가능해야 함
@@ -35,7 +39,11 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
         self.passage_prefix = passage_prefix
         logger.info("모델 로딩 시작: %s", model_name)
         start = time.time()
-        path = resolve_model_path(model_name, local_dir, **hub_kwargs)
+        path = resolve_model_path(
+            model_name, local_dir,
+            revision=revision, token=token, ignore_patterns=ignore_patterns,
+            max_workers=max_workers, local_files_only=local_files_only,
+        )
         self._model = SentenceTransformer(path, device=device)
         logger.info("모델 로딩 완료: %s (%.1fs)", model_name, time.time() - start)
 
@@ -72,7 +80,7 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
 #   )
 #
 # ⚠️ 접두사 주의: 일부 모델은 query/passage 접두사가 있어야 검색 성능이 나온다.
-#    빠뜨려도 에러 없이 조용히 품질만 떨어지므로 등록 시 반드시 함께 지정할 것.
+#    빠뜨려도 에러 없이 조용히 품질만 떨어지므로 생성 시 반드시 함께 지정할 것.
 #      - intfloat/multilingual-e5-*  → query_prefix="query: ", passage_prefix="passage: "
 #      - BAAI/bge 계열(영문 instruct) → 모델 카드의 지시 프롬프트 확인
 #      - jhgan/ko-sroberta-multitask, all-MiniLM-* → 접두사 불필요

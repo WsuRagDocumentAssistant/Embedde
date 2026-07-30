@@ -19,7 +19,11 @@ class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
         use_fp16: bool = True,
         normalize: bool = True,
         batch_size: int = 12,
-        **hub_kwargs,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        ignore_patterns: Optional[List[str]] = None,
+        max_workers: int = 4,
+        local_files_only: bool = False,
     ):
         super().__init__(batch_size=batch_size)
         from FlagEmbedding import BGEM3FlagModel  # 지연 import
@@ -28,7 +32,11 @@ class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
         self.normalize = normalize            # DenseCapable 클래스 기본값을 인스턴스 값으로 덮어씀
         logger.info("모델 로딩 시작: %s", model_name)
         start = time.time()
-        path = resolve_model_path(model_name, local_dir, **hub_kwargs)
+        path = resolve_model_path(
+            model_name, local_dir,
+            revision=revision, token=token, ignore_patterns=ignore_patterns,
+            max_workers=max_workers, local_files_only=local_files_only,
+        )
         self._model = BGEM3FlagModel(path, use_fp16=use_fp16, device=device)
         logger.info("모델 로딩 완료: %s (%.1fs)", model_name, time.time() - start)
 

@@ -11,7 +11,7 @@
 능력(capability) 기반 조립 구조. 구체 모델은 자기가 가진 능력만 골라 다중 상속한다.
 
 ```
-BaseEmbeddedModel   공통 뿌리 — model_name, batch_size, unload(), 컨텍스트 매니저
+BaseEmbeddedModel   공통 뿌리 — model_name, batch_size, unload()
 DenseCapable        dense 능력 — encode() / encode_queries() / encode_documents()
                               (구현체는 _encode_raw() + dimension 만 채움)
 SparseCapable       sparse 능력 — encode_sparse()
@@ -117,14 +117,20 @@ model = MyModel()
 ### 리소스 해제
 
 파이썬은 GPU 메모리를 자동 반납하지 않으므로 명시적으로 내린다.
+해제 시점은 사용자가 의도적으로 정한다 — 서버는 보통 모델을 프로세스 내내
+상주시키고 종료 훅에서 한 번 호출한다.
 
 ```python
-model.unload()                       # 수동 해제 (VRAM 반납)
-
-with BGEM3Model(model_name="...") as model:   # 자동 해제 (예외에도 안전)
+model = BGEM3Model(model_name="...")
+try:
     vecs = model.encode_documents(docs)
-# 블록 이탈 시 자동 unload()
+finally:
+    model.unload()      # VRAM 반납 (여러 번 호출해도 안전)
 ```
+
+컨텍스트 매니저(`with`)는 일부러 지원하지 않는다. 모델은 프로세스 수명 동안
+상주하는 자원이므로, 블록을 벗어날 때 자동으로 내려가는 동작이 실제 사용
+패턴과 맞지 않고 의도치 않은 조기 해제를 유발할 수 있다.
 
 ## 오프라인 서버 배포
 

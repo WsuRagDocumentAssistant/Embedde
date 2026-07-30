@@ -53,16 +53,6 @@ class BaseEmbeddedModel(ABC):
             pass  # torch 없는 백엔드(예: 해시/외부 API)면 할 일 없음
         logger.info("모델 unload: %s", self.model_name)
 
-    def __enter__(self) -> "BaseEmbeddedModel":
-        """with 블록 진입 — 인스턴스 그대로 반환."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        """with 블록 이탈 시(정상/예외 모두) unload() 호출.
-        False 반환으로 블록 안 예외는 그대로 전파시킨다(삼키지 않음)."""
-        self.unload()
-        return False
-
 
 class DenseCapable(ABC):
     """dense 벡터를 뽑을 수 있는 능력.
