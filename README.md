@@ -65,13 +65,21 @@ torch·transformers·numpy를 함께 끌어온다.
 
 클래스를 직접 생성한다. 어떤 모델을 쓸지는 `model_name`으로 지정한다.
 
-- `BGEM3Model` — dense + sparse (FlagEmbedding), 기본값 `BAAI/bge-m3`
+- `BGEM3Model` — dense + sparse (FlagEmbedding)
 - `SentenceTransformerModel` — 범용 dense 백엔드 (e5, ko-sroberta, MiniLM 등 모든 sentence-transformers 모델)
+
+> **다운로드는 기본으로 꺼져 있다.** `model_name`에는 이미 받아둔 로컬 폴더
+> 경로를 넘긴다. 경로가 없으면 Hub를 조회하지 않고 `FileNotFoundError`로 즉시
+> 실패한다 — 오프라인 배포에서 의도치 않은 네트워크 접근을 막기 위한 것이다.
+> 새로 받는 방법은 [오프라인 서버 배포](#오프라인-서버-배포) 참고.
+>
+> `model_name`의 의미는 모드에 따라 다르다 — 기본(`allow_download=False`)에서는
+> **로컬 폴더 경로**, `allow_download=True`에서는 **HF 레포 ID**다.
 
 ```python
 from embedded import BGEM3Model, SparseCapable
 
-model = BGEM3Model(model_name="BAAI/bge-m3")   # 또는 로컬 경로
+model = BGEM3Model(model_name="models/bge-m3")   # 이미 받아둔 폴더
 
 doc_vecs = model.encode_documents(["문서1", "문서2"])   # (2, 1024) 정규화된 dense
 query_vec = model.encode_queries(["검색어"])            # (1, 1024)
@@ -84,7 +92,7 @@ if isinstance(model, SparseCapable):
 from embedded import SentenceTransformerModel
 
 model = SentenceTransformerModel(
-    model_name="intfloat/multilingual-e5-large",
+    model_name="models/e5-large",                         # 이미 받아둔 폴더
     query_prefix="query: ", passage_prefix="passage: ",   # 모델별로 다름, 아래 참고
 )
 ```
@@ -142,9 +150,18 @@ finally:
 
 **1) 개발 PC에서 가중치 받기**
 
+다운로드는 `allow_download=True`로 명시적으로 켤 때만 일어나고, 받을 폴더
+(`local_dir`)를 반드시 지정해야 한다. 이 모드에서 `model_name`은 HF 레포 ID로
+해석된다. 지정한 폴더에 레포 파일 구조가 그대로 놓인다.
+
+> 참고: 이때 전역 HF 캐시(`~/.cache/huggingface`)에도 사본이 생기므로 같은
+> 모델이 디스크에 두 벌 남는다. 반입용 폴더만 챙기면 되니, 다운로드 후
+> 캐시는 비워도 된다.
+
 ```python
 from embedded.hf_utils import resolve_model_path
-resolve_model_path("BAAI/bge-m3", local_dir="models/bge-m3")
+
+resolve_model_path("BAAI/bge-m3", local_dir="models/bge-m3", allow_download=True)
 ```
 
 `models/bge-m3/` 폴더(가중치·토크나이저·설정 일체)를 통째로 서버에 옮긴다.
@@ -155,10 +172,11 @@ bge-m3면 `sparse_linear.pt`까지 빠짐없이 복사해야 한다.
 
 ```python
 from embedded import BGEM3Model
-model = BGEM3Model(model_name="/srv/models/bge-m3")
+model = BGEM3Model(model_name="/srv/models/bge-m3")   # allow_download 기본 False
 ```
 
-레포 ID가 아니라 로컬 폴더 경로를 주면 네트워크를 타지 않는다.
+로컬 폴더 경로를 주면 네트워크를 타지 않는다. 경로가 잘못되면 Hub로
+폴백하지 않고 `FileNotFoundError`가 발생하므로 배포 실수를 즉시 알 수 있다.
 실수 방지를 위해 서버 환경변수에 오프라인 모드를 박아두는 것을 권장한다.
 
 ```bash

@@ -82,7 +82,15 @@ class DenseCapable(ABC):
 
     def encode(self, texts: List[str], batch_size: Optional[int] = None) -> np.ndarray:
         """배치별로 _encode_raw()를 호출해 결과를 모으고,
-        GPU -> CPU 변환은 전체 배치가 끝난 뒤 딱 한 번만 수행한다."""
+        GPU -> CPU 변환은 전체 배치가 끝난 뒤 딱 한 번만 수행한다.
+
+        Args:
+            texts: 인코딩할 문장 리스트. 빈 리스트면 (0, dimension) 빈 배열 반환.
+            batch_size: 이번 호출에만 적용할 배치 크기. None이면 인스턴스 기본값.
+
+        Returns:
+            (len(texts), dimension) float32 배열. normalize=True면 각 행의 L2 노름이 1.
+        """
         if not texts:
             # 빈 입력: (0, dimension) 빈 배열을 반환해 호출부가 죽지 않게 한다.
             # (_concat_raw는 batches[0]에 접근하므로 빈 배치 리스트면 IndexError)
@@ -100,11 +108,21 @@ class DenseCapable(ABC):
         return vecs
 
     def encode_queries(self, texts: List[str], **kwargs) -> np.ndarray:
-        """검색 쿼리 인코딩. 모델별 쿼리 접두사를 붙인 뒤 encode()."""
+        """검색 쿼리 인코딩. 모델별 쿼리 접두사를 붙인 뒤 encode().
+
+        Args:
+            texts: 검색 쿼리 리스트.
+            **kwargs: encode()로 그대로 전달(batch_size 등).
+        """
         return self.encode([self.query_prefix + t for t in texts], **kwargs)
 
     def encode_documents(self, texts: List[str], **kwargs) -> np.ndarray:
-        """색인 대상 문서 인코딩. 모델별 문서 접두사를 붙인 뒤 encode()."""
+        """색인 대상 문서 인코딩. 모델별 문서 접두사를 붙인 뒤 encode().
+
+        Args:
+            texts: 색인할 문서 리스트.
+            **kwargs: encode()로 그대로 전달(batch_size 등).
+        """
         return self.encode([self.passage_prefix + t for t in texts], **kwargs)
 
     @staticmethod
@@ -137,7 +155,15 @@ class SparseCapable(ABC):
 
     def encode_sparse(self, texts: List[str]) -> List[Dict[int, float]]:
         """텍스트 리스트 -> 문장마다 {token_id: weight} 딕셔너리.
-        빈 입력 방어는 여기서 공통 보장하고, 실제 인코딩은 구현체에 위임한다."""
+        빈 입력 방어는 여기서 공통 보장하고, 실제 인코딩은 구현체에 위임한다.
+
+        Args:
+            texts: 인코딩할 문장 리스트. 빈 리스트면 빈 리스트 반환.
+
+        Returns:
+            문장별 {token_id: weight} 딕셔너리 리스트. 등장한 토큰만 담기며
+            (희소 표현), 키는 int·값은 float으로 통일된다.
+        """
         if not texts:
             return []
         return self._encode_sparse_raw(texts)

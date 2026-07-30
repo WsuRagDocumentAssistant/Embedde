@@ -13,6 +13,44 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
 
     e5, bge, ko-sroberta 등 대부분의 dense 임베딩 모델은
     이 클래스 하나 + 모델별 인자(model_name, 접두사)로 처리한다.
+
+    기본은 다운로드 금지다. 이미 받아둔 로컬 폴더 경로를 넘겨서 쓰고,
+    경로가 없으면 FileNotFoundError 로 즉시 실패한다(전역 HF 캐시를 조용히
+    채우지 않는다). 개발 PC에서 새로 받을 때만 allow_download=True 와
+    local_dir 을 함께 지정한다.
+
+        # 운영: 반입한 폴더로 로드
+        SentenceTransformerModel(model_name="/srv/models/e5-large", ...)
+        # 개발: Hub에서 받아 폴더에 저장
+        SentenceTransformerModel(model_name="intfloat/multilingual-e5-large",
+                                 local_dir="models/e5", allow_download=True, ...)
+
+    Args:
+        model_name: 로컬 폴더 경로, 또는 allow_download=True 일 때 Hub 레포 ID
+            (예: "intfloat/multilingual-e5-large"). 범용 백엔드이므로 필수.
+        device: 연산 장치("cuda", "cuda:1", "cpu"). None이면 라이브러리가
+            자동 선택(GPU 있으면 GPU).
+        local_dir: 다운로드 대상 폴더. allow_download=True 일 때만 의미가 있고,
+            그때는 필수다. 지정한 폴더에 파일을 그대로 받는다(전역 캐시 미사용).
+        allow_download: True면 Hub 접근/다운로드를 허용. 운영 서버에서는 끈다.
+        query_prefix: encode_queries()가 각 텍스트 앞에 붙이는 접두사.
+            e5 계열은 "query: " 필요. 아래 접두사 주의 참고.
+        passage_prefix: encode_documents()가 각 텍스트 앞에 붙이는 접두사.
+            e5 계열은 "passage: " 필요.
+        normalize: dense 벡터 L2 정규화. True면 내적이 곧 코사인 유사도.
+        batch_size: encode() 한 번에 처리할 문장 수. GPU 메모리 여유에 맞춰 조절.
+        revision: 브랜치/태그/커밋 해시. None이면 main 브랜치 최신 커밋.
+        token: private/gated 레포 인증 토큰.
+        ignore_patterns: 다운로드에서 제외할 파일 글롭(예: ["onnx/*"]).
+        max_workers: 병렬 다운로드 스레드 수.
+        local_files_only: True면 네트워크 요청 없이 로컬 파일만 사용.
+
+    Note:
+        revision 이후 5개는 실제 다운로드가 일어날 때만 쓰인다.
+
+    Raises:
+        FileNotFoundError: allow_download=False 인데 경로가 없을 때.
+        ValueError: allow_download=True 인데 local_dir 을 지정하지 않았을 때.
     """
 
     def __init__(
@@ -20,6 +58,7 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
         model_name: str,
         device: Optional[str] = None,
         local_dir: Optional[str] = None,
+        allow_download: bool = False,
         query_prefix: str = "",
         passage_prefix: str = "",
         normalize: bool = True,
@@ -40,7 +79,7 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
         logger.info("모델 로딩 시작: %s", model_name)
         start = time.time()
         path = resolve_model_path(
-            model_name, local_dir,
+            model_name, local_dir, allow_download=allow_download,
             revision=revision, token=token, ignore_patterns=ignore_patterns,
             max_workers=max_workers, local_files_only=local_files_only,
         )
@@ -75,8 +114,13 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
 #
 #   from embedded.models import SentenceTransformerModel
 #
+#   # 이미 받아둔 폴더로 로드 (기본: 다운로드 금지)
+#   model = SentenceTransformerModel(model_name="models/minilm-l6")
+#
+#   # 개발 PC에서 Hub에서 새로 받기
 #   model = SentenceTransformerModel(
 #       model_name="sentence-transformers/all-MiniLM-L6-v2",
+#       local_dir="models/minilm-l6", allow_download=True,
 #   )
 #
 # ⚠️ 접두사 주의: 일부 모델은 query/passage 접두사가 있어야 검색 성능이 나온다.
