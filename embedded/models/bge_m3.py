@@ -2,10 +2,8 @@ from typing import Dict, List, Optional
 
 from ..base import BaseEmbeddedModel, DenseCapable, SparseCapable
 from ..hf_utils import resolve_model_path
-from ..registry import register
 
 
-@register("bge-m3")
 class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
     """BGE-M3: dense + sparse(lexical) 동시 지원. FlagEmbedding 필요."""
 

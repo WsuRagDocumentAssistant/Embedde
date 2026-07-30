@@ -27,12 +27,11 @@ Thumbs.db
 start.py
 
 # 모델 가중치 (USB로 별도 반입, git에 올리지 않음)
-models/
+# 루트에만 고정: 슬래시 없이 "models/"라고 쓰면 embedded/models/(소스코드)까지 잡힘
+/models/
 offline_wheels/
 
 #실행 테스트
 main.py
 test_add_model.py
 verify_offline.py
-verify_offline.py
-test_add_model.py

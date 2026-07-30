@@ -2,15 +2,13 @@ from typing import List, Optional
 
 from ..base import BaseEmbeddedModel, DenseCapable
 from ..hf_utils import resolve_model_path
-from ..registry import register
 
 
-@register("sentence-transformer")
 class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
     """sentence-transformers로 로드 가능한 모든 HF 모델을 커버하는 범용 백엔드.
 
     e5, bge, ko-sroberta 등 대부분의 dense 임베딩 모델은
-    이 클래스 하나 + 아래 프리셋(모델 ID/접두사 설정)으로 처리한다.
+    이 클래스 하나 + 모델별 인자(model_name, 접두사)로 처리한다.
     """
 
     def __init__(
@@ -57,19 +55,14 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
 
 
 # ---- 사용법 ---------------------------------------------------------------
-# 이 백엔드는 "sentence-transformer" 이름으로만 등록되고, 구체 모델 프리셋은
-# 패키지에 하드코딩하지 않는다. 필요한 모델은 사용자가 자기 코드에서 등록한다.
+# 구체 모델(어떤 HF 레포를 쓸지)은 패키지에 하드코딩하지 않는다.
+# 클래스를 직접 생성하며 model_name 등을 넘긴다 — IDE 자동완성/타입 힌트를 그대로 받는다.
 #
-#   from embedded import create_model, register_preset
+#   from embedded.models import SentenceTransformerModel
 #
-#   # (1) 즉석 사용 — model_name 등을 직접 넘김
-#   model = create_model("sentence-transformer",
-#                        model_name="sentence-transformers/all-MiniLM-L6-v2")
-#
-#   # (2) 재사용할 별칭 등록
-#   register_preset("minilm-l6", "sentence-transformer",
-#                   model_name="sentence-transformers/all-MiniLM-L6-v2")
-#   model = create_model("minilm-l6")
+#   model = SentenceTransformerModel(
+#       model_name="sentence-transformers/all-MiniLM-L6-v2",
+#   )
 #
 # ⚠️ 접두사 주의: 일부 모델은 query/passage 접두사가 있어야 검색 성능이 나온다.
 #    빠뜨려도 에러 없이 조용히 품질만 떨어지므로 등록 시 반드시 함께 지정할 것.

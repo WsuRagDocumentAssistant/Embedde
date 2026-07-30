@@ -26,7 +26,6 @@
     <Compile Include="embedded\__init__.py" />
     <Compile Include="embedded\base.py" />
     <Compile Include="embedded\hf_utils.py" />
-    <Compile Include="embedded\registry.py" />
     <Compile Include="embedded\models\__init__.py" />
     <Compile Include="embedded\models\bge_m3.py" />
     <Compile Include="embedded\models\sentence_transformer.py" />

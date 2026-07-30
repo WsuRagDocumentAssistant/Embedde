@@ -1,13 +1,10 @@
 from .base import BaseEmbeddedModel, DenseCapable, SparseCapable
-from .registry import available_models, create_model, register, register_preset
-from . import models  # noqa: F401  (구현체들을 레지스트리에 등록)
+from .models import BGEM3Model, SentenceTransformerModel
 
 __all__ = [
     "BaseEmbeddedModel",
     "DenseCapable",
     "SparseCapable",
-    "available_models",
-    "create_model",
-    "register",
-    "register_preset",
+    "BGEM3Model",
+    "SentenceTransformerModel",
 ]

@@ -1,5 +1,9 @@
-# import 자체가 레지스트리 등록을 트리거한다.
-# 무거운 의존성(sentence_transformers, FlagEmbedding)은 각 클래스의
-# __init__ 안에서 지연 import하므로, 미설치 환경에서도 여기는 안전하다.
-from . import bge_m3  # noqa: F401
-from . import sentence_transformer  # noqa: F401
+# 모델 클래스를 여기서 재수출한다 — 사용자는 필요한 클래스를 직접 생성한다.
+# (레지스트리/이름 기반 팩토리는 두지 않는다: 모델 교체가 항상 코드 수정 +
+#  재배포로 이루어지므로, 문자열 간접층보다 클래스 직접 생성이 더 단순하고
+#  IDE 힌트도 그대로 받는다. 확장성은 BaseEmbeddedModel/DenseCapable/
+#  SparseCapable 조합만으로 이미 충분하다.)
+from .bge_m3 import BGEM3Model
+from .sentence_transformer import SentenceTransformerModel
+
+__all__ = ["BGEM3Model", "SentenceTransformerModel"]
