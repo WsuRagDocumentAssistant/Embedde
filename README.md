@@ -38,9 +38,8 @@ embedded/
     __init__.py      구현체 재수출
     sentence_transformer.py   범용 dense 백엔드 (sentence-transformers)
     bge_m3.py                 dense + sparse 백엔드 (FlagEmbedding)
-main.py              스모크 테스트
-verify_offline.py    오프라인 로딩 검증
 requirements.txt     의존 라이브러리 (버전 고정)
+pyproject.toml       패키지 정의
 ```
 
 > 이름 기반 팩토리(레지스트리)는 두지 않는다. 모델 교체가 항상 "서버 내리고
@@ -169,11 +168,21 @@ export TRANSFORMERS_OFFLINE=1
 
 **3) 검증**
 
-`verify_offline.py`가 네트워크를 차단한 채 로컬 폴더로 dense + sparse가
-나오는지 확인한다.
+서버에 반입한 뒤, 네트워크를 차단한 상태로 로컬 폴더에서 dense + sparse가
+모두 나오는지 확인한다.
 
-```bash
-python verify_offline.py
+```python
+import os
+os.environ["HF_HUB_OFFLINE"] = "1"        # import 전에 설정
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
+from embedded import BGEM3Model
+
+model = BGEM3Model(model_name="/srv/models/bge-m3")
+print(model.dimension)                                  # 1024
+print(model.encode_documents(["테스트"]).shape)          # (1, 1024)
+print(len(model.encode_sparse(["테스트"])[0]))           # sparse 토큰 수 > 0
+model.unload()
 ```
 
 > **라이브러리 반입**: 오프라인 서버는 `pip install`도 안 되므로, 서버 OS/파이썬
