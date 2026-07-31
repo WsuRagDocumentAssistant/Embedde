@@ -11,7 +11,7 @@
 능력(capability) 기반 조립 구조. 구체 모델은 자기가 가진 능력만 골라 다중 상속한다.
 
 ```
-BaseEmbeddedModel   공통 뿌리 — model_name, batch_size, unload()
+BaseEmbeddedModel   공통 뿌리 — model_name, batch_size, unload()/_release_model()
 DenseCapable        dense 능력 — encode() / encode_queries() / encode_documents()
                               (구현체는 _encode_raw() + dimension 만 채움)
 SparseCapable       sparse 능력 — encode_sparse()
@@ -23,9 +23,15 @@ SparseCapable       sparse 능력 — encode_sparse()
   (SpladeModel(BaseEmbeddedModel, SparseCapable))              # sparse만
 ```
 
-`DenseCapable`/`SparseCapable` 둘 다 템플릿 메서드 패턴이다 — 배치 분할, GPU→CPU
-변환(마지막에 한 번), 정규화, 접두사 처리, 빈 입력 방어 같은 **공통 로직은
-능력 클래스가 완성**해두고, 모델마다 다른 부분만 구현체가 채운다.
+`DenseCapable`/`SparseCapable` 둘 다 템플릿 메서드 패턴이다 — GPU→CPU 변환,
+정규화, 접두사 처리, 빈 입력 방어 같은 **공통 로직은 능력 클래스가 완성**해두고,
+모델마다 다른 부분만 구현체가 채운다.
+
+**배치 분할은 하지 않는다.** 텍스트를 통째로 백엔드에 넘기고 `batch_size`만
+전달한다. sentence-transformers와 FlagEmbedding은 입력을 길이순으로 정렬해
+패딩 낭비를 줄이는데, 미리 잘라서 넘기면 그 최적화가 청크 내부로 제한되어
+처리량이 떨어진다. 한 번에 넘겨도 결과는 텐서 하나이므로 GPU→CPU 동기화
+횟수는 어차피 1회다.
 
 ## 디렉터리 구조
 
@@ -59,6 +65,15 @@ pip install -r requirements.txt
 `sentence-transformers`(dense), `FlagEmbedding`(bge-m3 sparse)이 핵심 의존성이며
 torch·transformers·numpy를 함께 끌어온다.
 
+## 테스트
+
+더미 백엔드로 능력 믹스인의 계약을 검증한다 — GPU도 모델 다운로드도 필요 없다.
+
+```bash
+pip install pytest
+python -m pytest tests/ -q
+```
+
 ## 사용법
 
 ### 기본 제공 백엔드
@@ -75,6 +90,8 @@ torch·transformers·numpy를 함께 끌어온다.
 >
 > `model_name`의 의미는 모드에 따라 다르다 — 기본(`allow_download=False`)에서는
 > **로컬 폴더 경로**, `allow_download=True`에서는 **HF 레포 ID**다.
+> `local_dir`은 다운로드 모드 전용이라 기본 모드에서 지정하면 `ValueError`가
+> 발생한다(두 인자가 어긋난 채 한쪽이 조용히 무시되는 것을 막기 위함).
 
 ```python
 from embedded import BGEM3Model, SparseCapable
@@ -115,11 +132,15 @@ class MyModel(BaseEmbeddedModel, DenseCapable):
     def model_name(self): return "my-backend"
     @property
     def dimension(self): return 768
-    def _encode_raw(self, texts):
-        ...   # 배치 하나 -> 벡터. 배치 분할/정규화/CPU변환은 base가 담당
+    def _encode_raw(self, texts, batch_size):
+        ...   # 텍스트 전체 -> 벡터. 정규화/CPU변환/접두사는 base가 담당
+              # 배치 분할은 백엔드 라이브러리에 맡긴다(batch_size 를 그대로 전달)
 
 model = MyModel()
 ```
+
+`unload()`가 정리할 대상이 `self._model`이 아니라면 `_release_model()` 훅만
+오버라이드하면 된다.
 
 ### 리소스 해제
 
@@ -152,11 +173,8 @@ finally:
 
 다운로드는 `allow_download=True`로 명시적으로 켤 때만 일어나고, 받을 폴더
 (`local_dir`)를 반드시 지정해야 한다. 이 모드에서 `model_name`은 HF 레포 ID로
-해석된다. 지정한 폴더에 레포 파일 구조가 그대로 놓인다.
-
-> 참고: 이때 전역 HF 캐시(`~/.cache/huggingface`)에도 사본이 생기므로 같은
-> 모델이 디스크에 두 벌 남는다. 반입용 폴더만 챙기면 되니, 다운로드 후
-> 캐시는 비워도 된다.
+해석된다. 지정한 폴더에 레포 파일 구조가 그대로 놓인다(가중치가 전역 HF
+캐시에 중복 저장되지는 않는다 — 커밋 해시를 적은 1KB 포인터만 남는다).
 
 ```python
 from embedded.hf_utils import resolve_model_path

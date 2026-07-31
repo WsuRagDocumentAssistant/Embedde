@@ -15,23 +15,25 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
     이 클래스 하나 + 모델별 인자(model_name, 접두사)로 처리한다.
 
     기본은 다운로드 금지다. 이미 받아둔 로컬 폴더 경로를 넘겨서 쓰고,
-    경로가 없으면 FileNotFoundError 로 즉시 실패한다(전역 HF 캐시를 조용히
-    채우지 않는다). 개발 PC에서 새로 받을 때만 allow_download=True 와
+    경로가 없거나 불완전하면 FileNotFoundError 로 즉시 실패한다(Hub로
+    폴백하지 않는다). 개발 PC에서 새로 받을 때만 allow_download=True 와
     local_dir 을 함께 지정한다.
 
-        # 운영: 반입한 폴더로 로드
+        # 운영: 반입한 폴더로 로드 (local_dir 은 쓰지 않는다)
         SentenceTransformerModel(model_name="/srv/models/e5-large", ...)
         # 개발: Hub에서 받아 폴더에 저장
         SentenceTransformerModel(model_name="intfloat/multilingual-e5-large",
                                  local_dir="models/e5", allow_download=True, ...)
 
     Args:
-        model_name: 로컬 폴더 경로, 또는 allow_download=True 일 때 Hub 레포 ID
-            (예: "intfloat/multilingual-e5-large"). 범용 백엔드이므로 필수.
+        model_name: allow_download=False(기본)면 로드할 로컬 폴더 경로,
+            True면 Hub 레포 ID(예: "intfloat/multilingual-e5-large").
+            범용 백엔드이므로 필수.
         device: 연산 장치("cuda", "cuda:1", "cpu"). None이면 라이브러리가
             자동 선택(GPU 있으면 GPU).
-        local_dir: 다운로드 대상 폴더. allow_download=True 일 때만 의미가 있고,
-            그때는 필수다. 지정한 폴더에 파일을 그대로 받는다(전역 캐시 미사용).
+        local_dir: 다운로드 대상 폴더. allow_download=True 일 때만 유효하며
+            그때는 필수다. 기본 모드에서 지정하면 ValueError(로드 경로는
+            model_name 으로 준다 — 두 인자가 어긋나는 상황을 막기 위함).
         allow_download: True면 Hub 접근/다운로드를 허용. 운영 서버에서는 끈다.
         query_prefix: encode_queries()가 각 텍스트 앞에 붙이는 접두사.
             e5 계열은 "query: " 필요. 아래 접두사 주의 참고.
@@ -47,10 +49,11 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
 
     Note:
         revision 이후 5개는 실제 다운로드가 일어날 때만 쓰인다.
+        model_name 속성은 인자가 아니라 **실제 로드된 경로**를 돌려준다.
 
     Raises:
-        FileNotFoundError: allow_download=False 인데 경로가 없을 때.
-        ValueError: allow_download=True 인데 local_dir 을 지정하지 않았을 때.
+        FileNotFoundError: 로컬 경로가 없거나 모델 폴더로서 불완전할 때.
+        ValueError: 모드에 맞지 않는 인자 조합일 때(위 local_dir 설명 참고).
     """
 
     def __init__(
@@ -72,7 +75,6 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
         super().__init__(batch_size=batch_size)
         from sentence_transformers import SentenceTransformer  # 지연 import: 미설치 환경에서도 패키지 로드는 가능해야 함
 
-        self._name = model_name
         self.normalize = normalize            # DenseCapable 클래스 기본값을 인스턴스 값으로 덮어씀
         self.query_prefix = query_prefix
         self.passage_prefix = passage_prefix
@@ -83,8 +85,11 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
             revision=revision, token=token, ignore_patterns=ignore_patterns,
             max_workers=max_workers, local_files_only=local_files_only,
         )
+        # 실제 로드한 경로를 기록한다 — 다운로드 모드면 local_dir 이 되므로
+        # 인자로 받은 model_name(레포 ID)과 다를 수 있다.
+        self._name = path
         self._model = SentenceTransformer(path, device=device)
-        logger.info("모델 로딩 완료: %s (%.1fs)", model_name, time.time() - start)
+        logger.info("모델 로딩 완료: %s (%.1fs)", path, time.time() - start)
 
     @property
     def model_name(self) -> str:
@@ -92,17 +97,24 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
 
     @property
     def dimension(self) -> int:
+        if self._model is None:
+            raise RuntimeError(
+                f"모델이 이미 unload 되었습니다: {self._name!r}. "
+                "다시 사용하려면 인스턴스를 새로 생성하세요."
+            )
         # sentence-transformers 최신 버전에서 메서드명이 변경됨
         getter = getattr(self._model, "get_embedding_dimension", None)
         if getter is None:
             getter = self._model.get_sentence_embedding_dimension
         return getter()
 
-    def _encode_raw(self, texts: List[str]):
+    def _encode_raw(self, texts: List[str], batch_size: int):
         return self._model.encode(
             texts,
-            batch_size=len(texts),        # 배치 분할은 base.encode()가 담당
-            convert_to_tensor=True,       # GPU 텐서 그대로 반환 (CPU 변환은 base가 마지막에 한 번)
+            # 배치 분할은 sentence-transformers 에 맡긴다
+            # (길이순 정렬로 패딩 낭비를 줄이므로 미리 자르면 손해)
+            batch_size=batch_size,
+            convert_to_tensor=True,       # GPU 텐서 그대로 반환 (CPU 변환은 base가 한 번)
             normalize_embeddings=False,   # 정규화도 base가 담당
             show_progress_bar=False,
         )
