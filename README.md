@@ -39,7 +39,7 @@ SparseCapable       sparse 능력 — encode_sparse()
 embedded/
   __init__.py        공개 API 재수출 (BGEM3Model, SentenceTransformerModel 등)
   base.py            BaseEmbeddedModel / DenseCapable / SparseCapable
-  hf_utils.py        HF Hub 경로 해석 (resolve_model_path)
+  hf_utils.py        폴더 검증(ensure_model_dir) / Hub 다운로드(download_model)
   models/
     __init__.py      구현체 재수출
     sentence_transformer.py   범용 dense 백엔드 (sentence-transformers)
@@ -83,20 +83,19 @@ python -m pytest tests/ -q
 - `BGEM3Model` — dense + sparse (FlagEmbedding)
 - `SentenceTransformerModel` — 범용 dense 백엔드 (e5, ko-sroberta, MiniLM 등 모든 sentence-transformers 모델)
 
-> **다운로드는 기본으로 꺼져 있다.** `model_name`에는 이미 받아둔 로컬 폴더
-> 경로를 넘긴다. 경로가 없으면 Hub를 조회하지 않고 `FileNotFoundError`로 즉시
-> 실패한다 — 오프라인 배포에서 의도치 않은 네트워크 접근을 막기 위한 것이다.
-> 새로 받는 방법은 [오프라인 서버 배포](#오프라인-서버-배포) 참고.
+> **모델 클래스는 다운로드하지 않는다.** `model_path`에는 이미 받아둔 로컬 폴더
+> 경로를 넘긴다. 경로가 없거나 불완전하면 Hub를 조회하지 않고
+> `FileNotFoundError`로 즉시 실패한다 — 오프라인 배포에서 의도치 않은 네트워크
+> 접근을 막기 위한 것이다. 가중치를 새로 받는 것은 `download_model()`의 몫이며
+> 개발 PC에서만 쓴다([오프라인 서버 배포](#오프라인-서버-배포) 참고).
 >
-> `model_name`의 의미는 모드에 따라 다르다 — 기본(`allow_download=False`)에서는
-> **로컬 폴더 경로**, `allow_download=True`에서는 **HF 레포 ID**다.
-> `local_dir`은 다운로드 모드 전용이라 기본 모드에서 지정하면 `ValueError`가
-> 발생한다(두 인자가 어긋난 채 한쪽이 조용히 무시되는 것을 막기 위함).
+> `model_path` 외의 인자는 모두 키워드 전용이다(`*`). 12개 남짓한 설정을
+> 순서로 넘기다 값이 뒤바뀌는 사고를 막는다.
 
 ```python
 from embedded import BGEM3Model, SparseCapable
 
-model = BGEM3Model(model_name="models/bge-m3")   # 이미 받아둔 폴더
+model = BGEM3Model("models/bge-m3")   # 이미 받아둔 폴더
 
 doc_vecs = model.encode_documents(["문서1", "문서2"])   # (2, 1024) 정규화된 dense
 query_vec = model.encode_queries(["검색어"])            # (1, 1024)
@@ -109,7 +108,7 @@ if isinstance(model, SparseCapable):
 from embedded import SentenceTransformerModel
 
 model = SentenceTransformerModel(
-    model_name="models/e5-large",                         # 이미 받아둔 폴더
+    "models/e5-large",                                    # 이미 받아둔 폴더
     query_prefix="query: ", passage_prefix="passage: ",   # 모델별로 다름, 아래 참고
 )
 ```
@@ -149,7 +148,7 @@ model = MyModel()
 상주시키고 종료 훅에서 한 번 호출한다.
 
 ```python
-model = BGEM3Model(model_name="...")
+model = BGEM3Model("models/bge-m3")
 try:
     vecs = model.encode_documents(docs)
 finally:
@@ -171,15 +170,15 @@ finally:
 
 **1) 개발 PC에서 가중치 받기**
 
-다운로드는 `allow_download=True`로 명시적으로 켤 때만 일어나고, 받을 폴더
-(`local_dir`)를 반드시 지정해야 한다. 이 모드에서 `model_name`은 HF 레포 ID로
-해석된다. 지정한 폴더에 레포 파일 구조가 그대로 놓인다(가중치가 전역 HF
-캐시에 중복 저장되지는 않는다 — 커밋 해시를 적은 1KB 포인터만 남는다).
+`download_model()`이 Hub에서 가중치를 받아 지정한 폴더에 놓는다. 받을 폴더는
+필수 인자다 — 가중치가 전역 HF 캐시에만 남으면 반입할 폴더를 만들 수 없기
+때문이다. (가중치가 캐시에 중복 저장되지는 않는다 — 커밋 해시를 적은 1KB
+포인터만 남는다.)
 
 ```python
-from embedded.hf_utils import resolve_model_path
+from embedded.hf_utils import download_model
 
-resolve_model_path("BAAI/bge-m3", local_dir="models/bge-m3", allow_download=True)
+download_model("BAAI/bge-m3", "models/bge-m3")
 ```
 
 `models/bge-m3/` 폴더(가중치·토크나이저·설정 일체)를 통째로 서버에 옮긴다.
@@ -190,7 +189,7 @@ bge-m3면 `sparse_linear.pt`까지 빠짐없이 복사해야 한다.
 
 ```python
 from embedded import BGEM3Model
-model = BGEM3Model(model_name="/srv/models/bge-m3")   # allow_download 기본 False
+model = BGEM3Model("/srv/models/bge-m3")   # 모델 클래스는 다운로드하지 않는다
 ```
 
 로컬 폴더 경로를 주면 네트워크를 타지 않는다. 경로가 잘못되면 Hub로
@@ -214,7 +213,7 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 from embedded import BGEM3Model
 
-model = BGEM3Model(model_name="/srv/models/bge-m3")
+model = BGEM3Model("/srv/models/bge-m3")
 print(model.dimension)                                  # 1024
 print(model.encode_documents(["테스트"]).shape)          # (1, 1024)
 print(len(model.encode_sparse(["테스트"])[0]))           # sparse 토큰 수 > 0

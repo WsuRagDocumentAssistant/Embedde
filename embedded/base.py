@@ -6,7 +6,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-#: 배치 크기 기본값. 능력 믹스인과 공통 뿌리가 같은 값을 쓴다.
+#: 배치 크기 기본값 (BaseEmbeddedModel 이 소유하는 공통 인자).
 DEFAULT_BATCH_SIZE = 12
 
 
@@ -23,8 +23,10 @@ class BaseEmbeddedModel(ABC):
 
     능력 믹스인(DenseCapable/SparseCapable)은 BaseEmbeddedModel 을 상속하지 않는다.
     → 다중 상속 시 다이아몬드가 생기지 않아 MRO/super().__init__ 이 단순해진다.
-    믹스인이 참조하는 batch_size 는 각 믹스인에도 클래스 기본값으로 선언돼 있어,
-    Base 없이 믹스인만 상속해도 AttributeError 가 나지 않는다.
+
+    공통 인자(model_name, batch_size)는 이 클래스가 소유한다. 능력 믹스인은
+    self.batch_size 를 읽지만 스스로 정의하지 않으므로, 반드시 이 클래스와
+    함께 조립해야 한다(믹스인 단독 상속은 지원 대상이 아니다).
     """
 
     batch_size: int = DEFAULT_BATCH_SIZE
@@ -79,17 +81,17 @@ class DenseCapable(ABC):
     입력을 길이순으로 정렬해 비슷한 길이끼리 묶어 패딩 낭비를 줄이는데, 미리
     잘라서 넘기면 그 정렬이 청크 내부로 제한돼 처리량이 떨어진다. 한 번에
     넘겨도 결과는 텐서 하나이므로 GPU->CPU 동기화 횟수는 어차피 1회다.
-    (배치 크기는 구현체가 self.batch_size 를 백엔드에 전달해 반영한다.)
-    """
+
+    Note:
+        BaseEmbeddedModel 과 함께 상속해야 한다 — encode() 가 그쪽이 소유한
+        self.batch_size 를 읽는다.
+    """ 
 
     #: 검색용 인코딩 시 텍스트 앞에 붙는 접두사 (e5 계열 등). 필요한 모델만 오버라이드.
     query_prefix: str = ""
     passage_prefix: str = ""
     #: L2 정규화 여부. 구체 모델의 __init__ 에서 인스턴스 값으로 덮어쓸 수 있다.
     normalize: bool = True
-    #: 백엔드에 전달할 배치 크기. BaseEmbeddedModel 과 같은 기본값을 갖고 있어
-    #: 이 믹스인만 단독 상속해도 동작한다.
-    batch_size: int = DEFAULT_BATCH_SIZE
 
     @property
     @abstractmethod
@@ -163,11 +165,11 @@ class SparseCapable(ABC):
     DenseCapable 과 대칭 구조: 빈 입력 방어 등 공통 처리는 encode_sparse()가
     맡고, 구현체는 _encode_sparse_raw()만 채운다. 배치 분할을 백엔드에
     맡기는 것도 동일하다.
-    """
 
-    #: 백엔드에 전달할 배치 크기. DenseCapable 과 같은 기본값을 갖고 있어
-    #: 이 믹스인만 단독 상속해도 동작한다.
-    batch_size: int = DEFAULT_BATCH_SIZE
+    Note:
+        BaseEmbeddedModel 과 함께 상속해야 한다 — encode_sparse() 가 그쪽이
+        소유한 self.batch_size 를 읽는다.
+    """
 
     def encode_sparse(
         self, texts: List[str], batch_size: Optional[int] = None

@@ -131,30 +131,18 @@ def test_default_batch_size():
     assert DummyDense().batch_size == DEFAULT_BATCH_SIZE
 
 
-# ---- 믹스인 단독 상속 (Base 없이도 동작) -----------------------------------
+# ---- 믹스인 조립 계약 ------------------------------------------------------
+# 공통 인자(batch_size)는 BaseEmbeddedModel 이 소유한다. 능력 믹스인은 그것을
+# 읽기만 하므로 반드시 Base 와 함께 조립해야 한다.
 
-def test_dense_mixin_works_without_base():
-    """DenseCapable 만 상속해도 batch_size 기본값이 있어 AttributeError 가 없다."""
-
-    class Standalone(DenseCapable):
-        @property
-        def dimension(self):
-            return 2
-
-        def _encode_raw(self, texts, batch_size):
-            assert batch_size == DEFAULT_BATCH_SIZE
-            return np.ones((len(texts), 2), dtype=np.float32)
-
-    assert Standalone().encode(["a"]).shape == (1, 2)
+def test_batch_size_is_owned_by_base_not_mixins():
+    assert BaseEmbeddedModel.batch_size == DEFAULT_BATCH_SIZE
+    assert "batch_size" not in vars(DenseCapable)
+    assert "batch_size" not in vars(SparseCapable)
 
 
-def test_sparse_mixin_works_without_base():
-    class Standalone(SparseCapable):
-        def _encode_sparse_raw(self, texts, batch_size):
-            assert batch_size == DEFAULT_BATCH_SIZE
-            return [{1: 1.0} for _ in texts]
-
-    assert Standalone().encode_sparse(["a"]) == [{1: 1.0}]
+def test_base_constructor_sets_batch_size():
+    assert DummyDense(batch_size=5).batch_size == 5
 
 
 # ---- sparse ----------------------------------------------------------------
