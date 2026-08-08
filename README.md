@@ -11,7 +11,7 @@
 능력(capability) 기반 조립 구조. 구체 모델은 자기가 가진 능력만 골라 다중 상속한다.
 
 ```
-BaseEmbeddedModel   공통 뿌리 — model_name, batch_size, unload()/_release_model()
+BaseEmbeddedModel   공통 뿌리 — model_name, batch_size, unload()
 DenseCapable        dense 능력 — encode() / encode_queries() / encode_documents()
                               (구현체는 _encode_raw() + dimension 만 채움)
 SparseCapable       sparse 능력 — encode_sparse()
@@ -138,26 +138,30 @@ class MyModel(BaseEmbeddedModel, DenseCapable):
 model = MyModel()
 ```
 
-`unload()`가 정리할 대상이 `self._model`이 아니라면 `_release_model()` 훅만
-오버라이드하면 된다.
+`unload()`는 관례적으로 `self._model`을 비운다. 다른 이름을 쓰는 구현체는
+`unload()`를 오버라이드하고 `super().unload()`를 호출하면 된다.
 
 ### 리소스 해제
 
-파이썬은 GPU 메모리를 자동 반납하지 않으므로 명시적으로 내린다.
-해제 시점은 사용자가 의도적으로 정한다 — 서버는 보통 모델을 프로세스 내내
-상주시키고 종료 훅에서 한 번 호출한다.
+`unload()`는 **같은 프로세스 안에서 모델을 내리고 다른 모델을 올릴 때** 쓴다.
+torch는 캐싱 할당자를 써서 참조를 놓아도 VRAM을 쥐고 있으므로,
+`empty_cache()`를 명시적으로 불러야 반납된다.
 
 ```python
 model = BGEM3Model("models/bge-m3")
-try:
-    vecs = model.encode_documents(docs)
-finally:
-    model.unload()      # VRAM 반납 (여러 번 호출해도 안전)
+...
+model.unload()          # VRAM 반납 (여러 번 호출해도 안전)
+other = SentenceTransformerModel("models/e5-large")   # 이제 자리가 비었다
 ```
+
+> **프로세스 종료 시에는 호출할 필요가 없다** — CUDA/OS가 알아서 회수한다.
+> 모델을 하나(또는 여럿) 올려두고 프로세스 수명 내내 쓰는 구조라면 이 메서드를
+> 쓸 일이 없다.
 
 컨텍스트 매니저(`with`)는 일부러 지원하지 않는다. 모델은 프로세스 수명 동안
 상주하는 자원이므로, 블록을 벗어날 때 자동으로 내려가는 동작이 실제 사용
-패턴과 맞지 않고 의도치 않은 조기 해제를 유발할 수 있다.
+패턴과 맞지 않고 의도치 않은 조기 해제를 유발할 수 있다. 해제 시점은 항상
+사용자가 명시적으로 정한다.
 
 ## 오프라인 서버 배포
 

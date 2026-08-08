@@ -208,14 +208,13 @@ def test_unload_releases_model_and_is_idempotent():
     assert m._model is None
 
 
-def test_release_model_hook_is_used():
-    """_model 이 아닌 이름을 쓰는 구현체는 훅만 오버라이드하면 된다."""
+def test_unload_can_be_overridden_for_other_attribute_names():
+    """_model 이 아닌 이름을 쓰는 구현체는 unload() 를 오버라이드한다."""
 
     class CustomRelease(BaseEmbeddedModel, DenseCapable):
         def __init__(self):
             super().__init__()
             self._engine = object()
-            self.released = False
 
         @property
         def model_name(self):
@@ -228,13 +227,13 @@ def test_release_model_hook_is_used():
         def _encode_raw(self, texts, batch_size):
             return np.ones((len(texts), 1), dtype=np.float32)
 
-        def _release_model(self):
+        def unload(self):
             self._engine = None
-            self.released = True
+            super().unload()
 
     m = CustomRelease()
     m.unload()
-    assert m._engine is None and m.released
+    assert m._engine is None
 
 
 def test_context_manager_not_supported():

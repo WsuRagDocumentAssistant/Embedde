@@ -41,15 +41,22 @@ class BaseEmbeddedModel(ABC):
 
     # ---- 리소스 해제 -------------------------------------------------------
     def unload(self) -> None:
-        """모델을 메모리/GPU에서 내린다.
+        """모델을 메모리/GPU에서 내린다. 여러 번 호출해도 안전하다.
 
-        파이썬은 GPU 메모리를 자동으로 반납하지 않으므로, 서버 graceful
-        shutdown 등에서 명시적으로 호출해 VRAM을 비운다. 여러 번 호출해도 안전.
+        **같은 프로세스 안에서 모델을 내리고 다른 모델을 올릴 때** 필요하다.
+        torch 는 캐싱 할당자를 써서 참조를 놓아도 VRAM 을 자기 캐시로 쥐고 있어,
+        empty_cache() 를 명시적으로 불러야 반납된다. 이걸 하지 않으면 순차로
+        여러 모델을 올릴 때 VRAM 이 누적된다.
 
-        실제 모델 객체를 놓는 일은 _release_model() 훅에 위임한다 — 부모가
-        자식의 속성 이름을 알지 않도록.
+        프로세스 종료 시에는 호출할 필요가 없다 — CUDA/OS 가 알아서 회수한다.
+        모델을 하나(또는 여럿) 올려두고 프로세스 수명 내내 쓰는 구조라면
+        이 메서드를 쓸 일이 없다.
+
+        구현체가 관례적으로 self._model 에 모델을 들고 있다고 가정한다.
+        다른 이름이나 여러 개를 쓰는 구현체는 이 메서드를 오버라이드한다.
         """
-        self._release_model()
+        if getattr(self, "_model", None) is not None:
+            self._model = None
         import gc
         gc.collect()
         try:
@@ -59,15 +66,6 @@ class BaseEmbeddedModel(ABC):
         except ImportError:
             pass  # torch 없는 백엔드(예: 해시/외부 API)면 할 일 없음
         logger.info("모델 unload: %s", self.model_name)
-
-    def _release_model(self) -> None:
-        """구현체가 들고 있는 모델 객체 참조를 놓는다(여러 번 호출해도 안전).
-
-        기본 구현은 관례적인 self._model 을 비운다. 다른 이름/여러 개를 쓰는
-        구현체는 이 훅만 오버라이드하면 되고 unload() 는 그대로 재사용된다.
-        """
-        if getattr(self, "_model", None) is not None:
-            self._model = None
 
 
 class DenseCapable(ABC):
