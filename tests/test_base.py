@@ -35,6 +35,8 @@ class DummyDense(BaseEmbeddedModel, DenseCapable):
 
 
 class DummySparse(BaseEmbeddedModel, SparseCapable):
+    VOCAB = 1000
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.calls: list[tuple[list[str], int]] = []
@@ -42,6 +44,10 @@ class DummySparse(BaseEmbeddedModel, SparseCapable):
     @property
     def model_name(self) -> str:
         return "dummy-sparse"
+
+    @property
+    def sparse_dimension(self) -> int:
+        return self.VOCAB
 
     def _encode_sparse_raw(self, texts, batch_size):
         self.calls.append((list(texts), batch_size))
@@ -164,6 +170,27 @@ def test_sparse_per_call_batch_size():
     m = DummySparse(batch_size=3)
     m.encode_sparse(["a"], batch_size=9)
     assert m.calls[0][1] == 9
+
+
+def test_sparse_dimension_is_exposed():
+    """희소 표현을 벡터 DB(pgvector sparsevec 등)에 넣으려면 전체 차원이 필요하다."""
+    assert DummySparse().sparse_dimension == DummySparse.VOCAB
+
+
+def test_sparse_dimension_is_required():
+    """sparse 모델은 sparse_dimension 을 반드시 제공해야 한다(추상 프로퍼티)."""
+
+    class MissingDimension(BaseEmbeddedModel, SparseCapable):
+        @property
+        def model_name(self):
+            return "x"
+
+        def _encode_sparse_raw(self, texts, batch_size):
+            return [{1: 1.0} for _ in texts]
+        # sparse_dimension 미구현
+
+    with pytest.raises(TypeError):
+        MissingDimension()
 
 
 # ---- 능력 분기 (isinstance) ------------------------------------------------

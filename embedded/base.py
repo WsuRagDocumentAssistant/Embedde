@@ -169,6 +169,20 @@ class SparseCapable(ABC):
         소유한 self.batch_size 를 읽는다.
     """
 
+    @property
+    @abstractmethod
+    def sparse_dimension(self) -> int:
+        """sparse 벡터의 전체 차원 수(= 토크나이저 vocab 크기).
+
+        encode_sparse() 는 등장한 토큰만 담은 희소 표현을 돌려주므로, 이를
+        벡터 DB에 저장하려면 "전체 차원이 몇인지"가 따로 필요하다.
+        (예: pgvector sparsevec 은 '{id:weight,...}/차원수' 형식을 받는다)
+
+        값을 얻는 경로는 백엔드마다 다르다(tokenizer, config, 혹은 상수).
+        그 차이를 구현체가 흡수해 이 프로퍼티 하나로 노출한다 — 호출부가
+        백엔드 내부 구조를 알지 않아도 되도록.
+        """
+
     def encode_sparse(
         self, texts: List[str], batch_size: Optional[int] = None
     ) -> List[Dict[int, float]]:

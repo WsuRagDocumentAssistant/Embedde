@@ -94,6 +94,16 @@ class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
             )
             return 1024
 
+    @property
+    def sparse_dimension(self) -> int:
+        if self._model is None:
+            raise RuntimeError(
+                f"모델이 이미 unload 되었습니다: {self._name!r}. "
+                "다시 사용하려면 인스턴스를 새로 생성하세요."
+            )
+        # bge-m3 의 sparse 는 vocab 전체를 차원으로 갖는 희소 표현이다.
+        return self._model.tokenizer.vocab_size
+
     def _encode_raw(self, texts: List[str], batch_size: int):
         # 배치 분할은 FlagEmbedding 에 맡긴다(길이순 정렬로 패딩 낭비를 줄임).
         out = self._model.encode(
