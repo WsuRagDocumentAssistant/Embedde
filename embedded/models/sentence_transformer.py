@@ -64,17 +64,31 @@ class SentenceTransformerModel(BaseEmbeddedModel, DenseCapable):
         self._model = SentenceTransformer(path, device=device)
         logger.info("모델 로딩 완료: %s (%.1fs)", path, time.time() - start)
 
-    @property
-    def model_name(self) -> str:
-        return self._name
-
-    @property
-    def dimension(self) -> int:
+    def _require_model(self) -> None:
         if self._model is None:
             raise RuntimeError(
                 f"모델이 이미 unload 되었습니다: {self._name!r}. "
                 "다시 사용하려면 인스턴스를 새로 생성하세요."
             )
+
+    @property
+    def model_name(self) -> str:
+        return self._name
+
+    @property
+    def device(self) -> str:
+        """가중치가 실제로 올라간 연산 장치("cpu", "cuda:0" 등).
+
+        생성 시 넘긴 device 인자를 그대로 돌려주지 않고 실측한다 — 라이브러리가
+        인자를 무시하거나 지연 이동하는 경우가 있어(예: FlagEmbedding, bge_m3.py
+        참고) 입력값과 실제 위치가 다를 수 있기 때문이다.
+        """
+        self._require_model()
+        return str(self._model.device)
+
+    @property
+    def dimension(self) -> int:
+        self._require_model()
         # sentence-transformers 최신 버전에서 메서드명이 변경됨
         getter = getattr(self._model, "get_embedding_dimension", None)
         if getter is None:

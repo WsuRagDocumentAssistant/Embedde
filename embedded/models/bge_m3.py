@@ -71,17 +71,34 @@ class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
         )
         logger.info("모델 로딩 완료: %s (%.1fs)", path, time.time() - start)
 
-    @property
-    def model_name(self) -> str:
-        return self._name
-
-    @property
-    def dimension(self) -> int:
+    def _require_model(self) -> None:
         if self._model is None:
             raise RuntimeError(
                 f"모델이 이미 unload 되었습니다: {self._name!r}. "
                 "다시 사용하려면 인스턴스를 새로 생성하세요."
             )
+
+    @property
+    def model_name(self) -> str:
+        return self._name
+
+    @property
+    def device(self) -> str:
+        """가중치가 실제로 올라간 연산 장치("cpu", "cuda:0" 등).
+
+        생성 시 넘긴 device 인자를 그대로 돌려주는 게 아니라 실측한다 — 이
+        구분이 중요한 이유가 두 가지 있었다: ① FlagEmbedding 1.3+ 는 device=
+        인자명이 devices(복수)로 바뀌어, device= 로 주면 조용히 무시된 채
+        CPU로 폴백해도 겉으로는 에러가 없었다. ② FlagEmbedding 은 .to(device)
+        를 __init__ 이 아니라 encode() 호출 시점에 수행하므로, encode 를
+        부르기 전에 확인하면 아직 이동 전이라 항상 cpu로 보인다.
+        """
+        self._require_model()
+        return str(next(self._model.model.parameters()).device)
+
+    @property
+    def dimension(self) -> int:
+        self._require_model()
         try:
             return self._model.model.config.hidden_size
         except AttributeError:
@@ -96,11 +113,7 @@ class BGEM3Model(BaseEmbeddedModel, DenseCapable, SparseCapable):
 
     @property
     def sparse_dimension(self) -> int:
-        if self._model is None:
-            raise RuntimeError(
-                f"모델이 이미 unload 되었습니다: {self._name!r}. "
-                "다시 사용하려면 인스턴스를 새로 생성하세요."
-            )
+        self._require_model()
         # bge-m3 의 sparse 는 vocab 전체를 차원으로 갖는 희소 표현이다.
         return self._model.tokenizer.vocab_size
 
