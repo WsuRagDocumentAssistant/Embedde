@@ -59,26 +59,25 @@ pyproject.toml       패키지 정의
 ```bash
 python -m venv .venv
 .venv/Scripts/activate          # Windows
-pip install -r requirements.txt
+
+pip install .                          # BGEM3Model (dense+sparse) 만 쓸 때
+pip install ".[sentence-transformers]" # SentenceTransformerModel 도 쓸 때
 ```
 
-`sentence-transformers`(dense), `FlagEmbedding`(bge-m3 sparse)이 핵심 의존성이며
-torch·transformers·numpy를 함께 끌어온다.
+`FlagEmbedding`(bge-m3 dense+sparse)이 필수 의존성이고, `SentenceTransformerModel`
+용 `sentence-transformers`는 선택 의존성이다. torch·transformers·numpy 등은
+함께 끌려온다.
 
-## 테스트
-
-더미 백엔드로 능력 믹스인의 계약을 검증한다 — GPU도 모델 다운로드도 필요 없다.
-
-```bash
-pip install pytest
-python -m pytest tests/ -q
-```
+> **GPU 서버 주의**: torch를 새로 설치하는 환경이라면 PyPI 기본 인덱스에서
+> CPU 전용 빌드가 잡힌다(GPU가 있어도 못 씀). CUDA 인덱스에서 torch를 먼저
+> 설치해야 하며, 자세한 순서는 [requirements.txt](requirements.txt) 상단 주석 참고.
 
 ## 사용법
 
 ### 기본 제공 백엔드
 
-클래스를 직접 생성한다. 어떤 모델을 쓸지는 `model_name`으로 지정한다.
+클래스를 직접 생성한다. 어떤 모델을 쓸지는 첫 인자 `model_path`(이미 받아둔
+모델 폴더 경로)로 지정한다.
 
 - `BGEM3Model` — dense + sparse (FlagEmbedding)
 - `SentenceTransformerModel` — 범용 dense 백엔드 (e5, ko-sroberta, MiniLM 등 모든 sentence-transformers 모델)
