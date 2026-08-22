@@ -35,3 +35,4 @@ offline_wheels/
 main.py
 test_add_model.py
 verify_offline.py
+tests/

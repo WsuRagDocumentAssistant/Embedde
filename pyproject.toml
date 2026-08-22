@@ -10,11 +10,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 dependencies = [
-    "numpy",
-    "huggingface_hub",
-    "sentence-transformers",   # dense 백엔드
-    "FlagEmbedding",           # bge-m3 dense+sparse
+    "numpy==2.4.6",
+    "huggingface_hub==1.23.0",
+    "FlagEmbedding==1.4.0",           # bge-m3 dense+sparse
 ]
+
+[project.optional-dependencies]
+sentence-transformers = ["sentence-transformers==5.6.0"]   # 범용 dense 백엔드 (SentenceTransformerModel)
 
 [tool.setuptools.packages.find]
 include = ["embedded*"]        # embedded 패키지만 설치 대상으로
